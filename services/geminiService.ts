@@ -1,7 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { MathOperation, MathStoryResponse } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { MathOperation, MathStoryResponse } from "../types";
 
 export const generateMathContent = async (
   num1: number,
@@ -9,48 +7,47 @@ export const generateMathContent = async (
   operation: MathOperation,
   forcedEmoji?: string
 ): Promise<MathStoryResponse> => {
-  const opWord = operation === MathOperation.ADD ? "addition" : "subtraction";
   
-  // If we have a forced emoji, ensure the prompt uses it.
-  const objectPrompt = forcedEmoji 
-    ? `Use the object represented by this emoji: ${forcedEmoji}. The story MUST be about this object.` 
-    : `Use concrete objects (fruits, toys, animals) that can be represented by a single emoji.`;
+  const controller = new AbortController();
+  // 5s strict timeout to prevent spinning forever
+  const TIMEOUT_MS = 5000;
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: `Create a math word problem for a 1st grader: ${num1} ${operation} ${num2}. ${objectPrompt}. Keep the story content short (maximum 30 words).`,
-    config: {
-      systemInstruction: "You are a friendly, enthusiastic kindergarten math teacher. Keep language very simple. Use short sentences. IMPORTANT: Always write numbers as digits (e.g., '5') not words (e.g., 'five'). Structure: Context -> Action -> Question.",
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          story: {
-            type: Type.STRING,
-            description: "A short, simple 3-sentence word problem (max 30 words). Use digits for numbers.",
-          },
-          emoji: {
-            type: Type.STRING,
-            description: "A single emoji character representing the object in the story.",
-          },
-          steps: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "3 simple steps explaining how to solve it. Step 1: Start with..., Step 2: Add/Take away..., Step 3: Count result.",
-          },
-          encouragement: {
-            type: Type.STRING,
-            description: "A short phrase like 'Great job!' or 'You are a math whiz!'",
-          },
-        },
-        required: ["story", "emoji", "steps", "encouragement"],
+  // We wrap the fetch in a Promise.race to guarantee a rejection if the fetch hangs
+  // despite the AbortController (some environments are tricky).
+  const fetchPromise = fetch('/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    },
+      body: JSON.stringify({
+        num1,
+        num2,
+        operation,
+        forcedEmoji
+      }),
+      signal: controller.signal
+    });
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Strict Timeout')), TIMEOUT_MS);
   });
 
-  if (response.text) {
-    return JSON.parse(response.text) as MathStoryResponse;
+  try {
+    const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data as MathStoryResponse;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.warn("API Request Failed in Service (Timeout or Error):", error);
+    throw error; 
   }
-  
-  throw new Error("Failed to generate content");
 };
+    

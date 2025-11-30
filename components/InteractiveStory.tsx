@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { MathOperation } from '../types';
 
@@ -19,6 +20,8 @@ export const InteractiveStory: React.FC<InteractiveStoryProps> = ({ story, num1,
     ];
 
     const renderStory = () => {
+        if (!story || typeof story !== 'string') return <span>Story not available.</span>;
+
         const words = story.split(' ');
         return words.map((word, index) => {
             // Clean punctuation for matching
