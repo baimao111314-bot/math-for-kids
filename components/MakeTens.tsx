@@ -1,0 +1,307 @@
+
+import React, { useState, useEffect } from 'react';
+
+interface MakeTensProps {
+    onBack: () => void;
+}
+
+type Mode = 'ADD' | 'SUBTRACT';
+
+export const MakeTens: React.FC<MakeTensProps> = ({ onBack }) => {
+    const [mode, setMode] = useState<Mode>('ADD');
+    const [startCount, setStartCount] = useState(0); // For ADD: initial red dots. For SUBTRACT: always 10.
+    const [targetSubtract, setTargetSubtract] = useState(0); // Only for SUBTRACT: how many to remove.
+    
+    // User interaction state
+    const [userIndices, setUserIndices] = useState<Set<number>>(new Set()); // ADD: filled blue stars. SUBTRACT: crossed out dots.
+    
+    const [success, setSuccess] = useState(false);
+    const [instruction, setInstruction] = useState("");
+
+    const initGame = (currentMode: Mode) => {
+        setSuccess(false);
+        setUserIndices(new Set());
+
+        if (currentMode === 'ADD') {
+            // Logic: Start with N, fill rest to make 10
+            const num = Math.floor(Math.random() * 9); // 0 to 8 (leave at least 2 empty usually for fun, or 0-9 is fine)
+            setStartCount(num);
+            setInstruction(`We have ${num} red dots. How many more to make 10?`);
+        } else {
+            // Logic: Start with 10, ask to subtract N
+            setStartCount(10);
+            const toTake = Math.floor(Math.random() * 9) + 1; // 1 to 9
+            setTargetSubtract(toTake);
+            setInstruction(`We have 10 red dots. Take away ${toTake} dots!`);
+        }
+    };
+
+    // Initialize on mount or mode change
+    useEffect(() => {
+        initGame(mode);
+    }, [mode]);
+
+    // Check Logic Update
+    useEffect(() => {
+        if (mode === 'ADD') {
+            if (success) {
+                setInstruction(`Hooray! ${startCount} + ${userIndices.size} = 10!`);
+            } else if (userIndices.size > 0) {
+                const currentTotal = startCount + userIndices.size;
+                const remaining = 10 - currentTotal;
+                if (remaining > 0) {
+                    setInstruction(`You added ${userIndices.size}. Need ${remaining} more!`);
+                } else if (remaining < 0) {
+                     setInstruction(`Oops! Too many.`);
+                }
+            } else {
+                setInstruction(`We have ${startCount} red dots. How many more to make 10?`);
+            }
+        } else {
+            // SUBTRACT MODE
+            if (success) {
+                setInstruction(`Perfect! 10 - ${targetSubtract} = ${10 - targetSubtract} left.`);
+            } else {
+                const currentTaken = userIndices.size;
+                const leftToTake = targetSubtract - currentTaken;
+                
+                if (leftToTake > 0) {
+                    setInstruction(`Tap ${leftToTake} more dots to cross them out.`);
+                } else if (leftToTake < 0) {
+                    setInstruction(`Oops! You crossed out too many. Unclick some.`);
+                } else {
+                    // Logic handled in toggle, but just in case
+                    setInstruction(`Great! You took away ${targetSubtract}.`);
+                }
+            }
+        }
+    }, [userIndices.size, success, startCount, mode, targetSubtract]);
+
+    const handleCellClick = (index: number) => {
+        if (success) return;
+
+        if (mode === 'ADD') {
+            // Can only fill if index is >= startCount (the empty spots)
+            if (index < startCount) return;
+
+            const newSet = new Set(userIndices);
+            if (newSet.has(index)) newSet.delete(index);
+            else newSet.add(index);
+            
+            setUserIndices(newSet);
+
+            if (startCount + newSet.size === 10) setSuccess(true);
+            else setSuccess(false);
+
+        } else {
+            // SUBTRACT MODE
+            // Always starts with 10 red dots. User clicks to 'cross out'.
+            // In visual logic, 0-9 are all "PreFilled" as red dots visually, but we treat them as interactable.
+            
+            const newSet = new Set(userIndices);
+            if (newSet.has(index)) newSet.delete(index);
+            else newSet.add(index); // Add to crossed out set
+
+            setUserIndices(newSet);
+
+            if (newSet.size === targetSubtract) setSuccess(true);
+            else setSuccess(false);
+        }
+    };
+
+    const renderCell = (index: number) => {
+        // Visual State Calculations
+        let isRedDot = false;
+        let isBlueStar = false;
+        let isCrossed = false;
+        let isInteractable = false;
+
+        if (mode === 'ADD') {
+            isRedDot = index < startCount;
+            isBlueStar = userIndices.has(index);
+            isInteractable = !isRedDot && !success;
+        } else {
+            // Subtract mode: All start as Red Dots. User adds "Cross" overlay.
+            isRedDot = true; 
+            isCrossed = userIndices.has(index);
+            isInteractable = !success;
+        }
+
+        return (
+            <button
+                key={index}
+                onClick={() => handleCellClick(index)}
+                disabled={!isInteractable}
+                className={`
+                    w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 border-4 border-gray-800 flex items-center justify-center transition-all duration-200 relative
+                    ${isRedDot ? 'bg-red-50' : 'bg-white'}
+                    ${isInteractable ? 'hover:bg-gray-50 cursor-pointer active:scale-95' : 'cursor-default'}
+                `}
+            >
+                {/* Visual Dot/Star/Cross */}
+                <div className="relative w-full h-full flex items-center justify-center">
+                    
+                    {/* The Red Dot */}
+                    <div className={`transition-all duration-300 transform ${isRedDot ? 'scale-100 opacity-100' : 'scale-0 opacity-0'} absolute`}>
+                         <div className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-red-500 shadow-md border-2 border-red-600"></div>
+                    </div>
+
+                    {/* The Blue Star (Add Mode) */}
+                    <div className={`transition-all duration-300 transform ${isBlueStar ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'} absolute`}>
+                         <div className="text-4xl sm:text-5xl md:text-6xl text-blue-500 drop-shadow-sm filter">★</div>
+                    </div>
+
+                    {/* The Cross Out (Subtract Mode) */}
+                    {mode === 'SUBTRACT' && (
+                        <div className={`transition-all duration-300 transform ${isCrossed ? 'scale-100 opacity-100' : 'scale-150 opacity-0'} absolute inset-0 flex items-center justify-center`}>
+                            <span className="text-5xl sm:text-6xl md:text-7xl text-gray-800 font-bold opacity-80">✖</span>
+                        </div>
+                    )}
+
+                </div>
+                
+                {/* Empty State Hint (only if active and empty in ADD mode) */}
+                {mode === 'ADD' && !isRedDot && !isBlueStar && !success && (
+                    <div className="w-3 h-3 rounded-full bg-gray-300 absolute"></div>
+                )}
+            </button>
+        );
+    };
+
+    return (
+        <div className="w-full max-w-4xl mx-auto">
+             <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+                <div className="flex items-center self-start md:self-auto">
+                    <button 
+                        onClick={onBack}
+                        className="mr-4 px-4 py-2 bg-white rounded-full shadow-md text-gray-600 hover:bg-gray-100 transition-colors font-bold border border-gray-200"
+                    >
+                        ⬅️ Back
+                    </button>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-blue-600 tracking-tight">
+                        {mode === 'ADD' ? 'Make Ten 🔟' : 'Take from Ten 🔟'}
+                    </h1>
+                </div>
+
+                {/* Mode Toggle */}
+                <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 flex">
+                    <button
+                        onClick={() => setMode('ADD')}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${mode === 'ADD' ? 'bg-blue-100 text-blue-700 shadow-inner' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        ➕ Add
+                    </button>
+                    <button
+                        onClick={() => setMode('SUBTRACT')}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${mode === 'SUBTRACT' ? 'bg-red-100 text-red-700 shadow-inner' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        ➖ Subtract
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-8">
+                {/* Left Side: Game Board */}
+                <div className={`rounded-3xl p-6 shadow-xl border-b-8 flex flex-col items-center justify-center transition-colors duration-500 ${mode === 'ADD' ? 'bg-blue-600 border-blue-800' : 'bg-red-500 border-red-700'}`}>
+                    
+                    {/* The Ten Frame Container */}
+                    <div className="bg-yellow-100 p-3 sm:p-4 rounded-xl shadow-inner border-4 border-yellow-300 inline-block mb-6">
+                        <div className="grid grid-cols-5 gap-0 border-4 border-gray-800 bg-gray-800">
+                            {Array.from({ length: 10 }).map((_, i) => renderCell(i))}
+                        </div>
+                    </div>
+
+                    {/* Dynamic Instruction */}
+                    <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 w-full text-center min-h-[80px] flex items-center justify-center border border-white/30">
+                        <p className="text-white text-xl md:text-2xl font-bold font-comic drop-shadow-md">
+                            {instruction}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Right Side: Step-by-Step Breakdown */}
+                <div className="flex flex-col gap-4">
+                    
+                    {mode === 'ADD' ? (
+                        <>
+                             {/* Step 1: Count Red */}
+                            <div className="p-4 rounded-2xl border-l-8 bg-white border-red-400 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500 font-bold uppercase text-xs tracking-wider">Start</span>
+                                    <span className="text-2xl font-bold text-red-500">{startCount}</span>
+                                </div>
+                                <p className="text-gray-700 font-medium">Red Dots</p>
+                            </div>
+
+                            {/* Step 2: Add Blue */}
+                            <div className={`p-4 rounded-2xl border-l-8 transition-all duration-500 ${userIndices.size > 0 ? 'bg-white border-blue-400 shadow-md transform translate-x-2' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500 font-bold uppercase text-xs tracking-wider">Add</span>
+                                    <span className="text-2xl font-bold text-blue-500">{userIndices.size}</span>
+                                </div>
+                                <p className="text-gray-700 font-medium">Blue Stars</p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Step 1: Start with 10 */}
+                            <div className="p-4 rounded-2xl border-l-8 bg-white border-red-400 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500 font-bold uppercase text-xs tracking-wider">Start</span>
+                                    <span className="text-2xl font-bold text-red-500">10</span>
+                                </div>
+                                <p className="text-gray-700 font-medium">Total Dots</p>
+                            </div>
+
+                            {/* Step 2: Subtract Target */}
+                            <div className={`p-4 rounded-2xl border-l-8 transition-all duration-500 ${userIndices.size > 0 ? 'bg-white border-gray-600 shadow-md transform translate-x-2' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-gray-500 font-bold uppercase text-xs tracking-wider">Take Away</span>
+                                    <span className="text-2xl font-bold text-gray-700">{userIndices.size}</span>
+                                </div>
+                                <p className="text-gray-700 font-medium">Target: {targetSubtract}</p>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Step 3: Result */}
+                    <div className={`p-6 rounded-2xl border-l-8 transition-all duration-500 flex flex-col items-center justify-center text-center flex-grow ${success ? 'bg-green-100 border-green-500 shadow-xl scale-105' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
+                        {success ? (
+                            <div className="animate-bounce-in">
+                                <h3 className="text-green-700 font-bold text-lg mb-2">SOLVED!</h3>
+                                <div className="text-4xl md:text-5xl font-black text-gray-800 mb-2 whitespace-nowrap">
+                                    {mode === 'ADD' 
+                                        ? `${startCount} + ${userIndices.size} = 10`
+                                        : `10 - ${targetSubtract} = ${10 - targetSubtract}`
+                                    }
+                                </div>
+                                <p className="text-green-600 font-medium mb-4">
+                                    {mode === 'ADD' ? "You made a ten!" : "You solved the subtraction!"}
+                                </p>
+                                <button 
+                                    onClick={() => initGame(mode)}
+                                    className="px-8 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 shadow-lg active:scale-95 transition-transform"
+                                >
+                                    Play Again 🔄
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-gray-400 font-bold text-xl">
+                                {mode === 'ADD' ? (
+                                    <>Make 10!</>
+                                ) : (
+                                    <>{10 - userIndices.size} left</>
+                                )}
+                                <br/>
+                                <span className="text-sm font-normal">
+                                    {mode === 'ADD' ? "Fill the empty boxes." : `Cross out ${targetSubtract} dots.`}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    );
+};
