@@ -5,8 +5,9 @@ import { MakeTens } from './components/MakeTens';
 import { MoreOrLess } from './components/MoreOrLess';
 import { CountingPractice } from './components/CountingPractice';
 import { CalmDown } from './components/CalmDown';
+import { EquationDetective } from './components/EquationDetective';
 
-type View = 'HOME' | 'WORD_PROBLEMS' | 'MAKE_TENS' | 'MORE_LESS' | 'COUNTING' | 'CALM';
+type View = 'HOME' | 'WORD_PROBLEMS' | 'MAKE_TENS' | 'MORE_LESS' | 'COUNTING' | 'CALM' | 'EQUATION_DETECTIVE';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('HOME');
@@ -21,6 +22,8 @@ export default function App() {
         return <MoreOrLess onBack={() => setCurrentView('HOME')} />;
       case 'COUNTING':
         return <CountingPractice onBack={() => setCurrentView('HOME')} />;
+      case 'EQUATION_DETECTIVE':
+        return <EquationDetective onBack={() => setCurrentView('HOME')} />;
       case 'CALM':
         return <CalmDown onBack={() => setCurrentView('HOME')} />;
       default:
@@ -38,8 +41,8 @@ export default function App() {
       </header>
 
       {/* Main Game Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4 mb-12">
-        {/* Card 1: Counting 1-100 (Swapped) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl px-4 mb-12">
+        {/* Card 1: Counting 1-100 */}
         <button 
           onClick={() => setCurrentView('COUNTING')}
           className="group relative bg-white rounded-3xl p-6 shadow-xl border-b-8 border-yellow-100 hover:border-yellow-300 hover:-translate-y-2 transition-all duration-300 flex flex-col items-center justify-center min-h-[180px]"
@@ -66,13 +69,23 @@ export default function App() {
         >
           <div className="text-5xl mb-2 group-hover:scale-110 transition-transform duration-300">⚖️</div>
           <h2 className="text-2xl font-bold text-purple-600">Compare</h2>
-          <p className="text-gray-500 text-sm mt-1">More or Less</p>
+          <p className="text-gray-500 text-sm mt-1">More vs Less</p>
         </button>
 
-         {/* Card 4: Word Problems (Swapped) */}
+        {/* Card 4: Equation Detective */}
+        <button 
+          onClick={() => setCurrentView('EQUATION_DETECTIVE')}
+          className="group relative bg-white rounded-3xl p-6 shadow-xl border-b-8 border-teal-100 hover:border-teal-300 hover:-translate-y-2 transition-all duration-300 flex flex-col items-center justify-center min-h-[180px]"
+        >
+          <div className="text-5xl mb-2 group-hover:scale-110 transition-transform duration-300">🕵️</div>
+          <h2 className="text-2xl font-bold text-teal-600">Equation Detective</h2>
+          <p className="text-gray-500 text-sm mt-1">Find the math!</p>
+        </button>
+
+         {/* Card 5: Word Problems */}
          <button 
           onClick={() => setCurrentView('WORD_PROBLEMS')}
-          className="group relative bg-white rounded-3xl p-6 shadow-xl border-b-8 border-indigo-100 hover:border-indigo-300 hover:-translate-y-2 transition-all duration-300 flex flex-col items-center justify-center min-h-[180px]"
+          className="group relative bg-white rounded-3xl p-6 shadow-xl border-b-8 border-indigo-100 hover:border-indigo-300 hover:-translate-y-2 transition-all duration-300 flex flex-col items-center justify-center min-h-[180px] md:col-span-2 lg:col-span-1"
         >
           <div className="text-5xl mb-2 group-hover:scale-110 transition-transform duration-300">📝</div>
           <h2 className="text-2xl font-bold text-indigo-600">Word Problems</h2>
@@ -94,7 +107,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 font-sans pb-10 flex flex-col">
-      <div className="max-w-6xl mx-auto w-full h-full flex-1 flex flex-col justify-center">
+      <div className="max-w-7xl mx-auto w-full h-full flex-1 flex flex-col justify-center">
         {renderView()}
       </div>
     </div>
